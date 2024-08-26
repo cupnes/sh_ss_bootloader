@@ -117,11 +117,11 @@ main() {
 		copy_to_reg_from_val_long r14 $a_load_data_from_midi
 		copy_to_reg_from_val_long r13 $PROG_LOAD_BASE
 
-		# この時、r2にチェックサムが入っている
-
 		# 一連のデータ受信を行う関数を呼び出す
 		sh2_abs_call_to_reg_after_next_inst r14
 		sh2_copy_to_reg_from_reg r1 r13
+
+		# この時、r2にチェックサムが入っている
 
 		# ロードしたプログラムを実行する
 		sh2_abs_call_to_reg_after_next_inst r13
