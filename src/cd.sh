@@ -266,9 +266,9 @@ f_cd_exec_command() {
 	sh2_nop
 }
 
-# 指定されたFADの画像(320x224)をVDP1 RAMのother領域へロードし表示する
-# in  : r1 - FAD
-f_load_img_from_cd_and_view() {
+# CDシステム初期化処理
+# (PlayDisc直前の定形処理を関数化)
+f_setup_cdsystem() {
 	# 変更が発生するレジスタを退避
 	## r0
 	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
@@ -285,33 +285,6 @@ f_load_img_from_cd_and_view() {
 	## r4
 	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
 	sh2_copy_to_ptr_from_reg_long r15 r4
-	## r5
-	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
-	sh2_copy_to_ptr_from_reg_long r15 r5
-	## r6
-	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
-	sh2_copy_to_ptr_from_reg_long r15 r6
-	## r7
-	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
-	sh2_copy_to_ptr_from_reg_long r15 r7
-	## r8
-	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
-	sh2_copy_to_ptr_from_reg_long r15 r8
-	## r9
-	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
-	sh2_copy_to_ptr_from_reg_long r15 r9
-	## r10
-	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
-	sh2_copy_to_ptr_from_reg_long r15 r10
-	## r11
-	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
-	sh2_copy_to_ptr_from_reg_long r15 r11
-	## r12
-	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
-	sh2_copy_to_ptr_from_reg_long r15 r12
-	## r13
-	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
-	sh2_copy_to_ptr_from_reg_long r15 r13
 	## r14
 	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
 	sh2_copy_to_ptr_from_reg_long r15 r14
@@ -322,12 +295,6 @@ f_load_img_from_cd_and_view() {
 
 	# 使用する関数・変数のアドレスをレジスタへ設定
 	copy_to_reg_from_val_long r14 $a_cd_exec_command
-	copy_to_reg_from_val_long r12 $SS_CT_CS2_DTR_ADDR
-	copy_to_reg_from_val_long r10 $SS_CT_CS2_CR4_ADDR
-	copy_to_reg_from_val_long r9 $var_tmp_img_area
-
-	# FADをr6へコピー
-	sh2_copy_to_reg_from_reg r6 r1
 
 	# ファイルアクセスの中止
 	## AbortFile(0x75)
@@ -503,6 +470,102 @@ f_load_img_from_cd_and_view() {
 
 	## CDコマンド実行
 	sh2_abs_call_to_reg_after_next_inst r14
+	sh2_nop
+
+	# 退避したレジスタを復帰しreturn
+	## pr
+	sh2_copy_to_reg_from_ptr_long r0 r15
+	sh2_add_to_reg_from_val_byte r15 04
+	sh2_copy_to_pr_from_reg r0
+	## r14
+	sh2_copy_to_reg_from_ptr_long r14 r15
+	sh2_add_to_reg_from_val_byte r15 04
+	## r4
+	sh2_copy_to_reg_from_ptr_long r4 r15
+	sh2_add_to_reg_from_val_byte r15 04
+	## r3
+	sh2_copy_to_reg_from_ptr_long r3 r15
+	sh2_add_to_reg_from_val_byte r15 04
+	## r2
+	sh2_copy_to_reg_from_ptr_long r2 r15
+	sh2_add_to_reg_from_val_byte r15 04
+	## r1
+	sh2_copy_to_reg_from_ptr_long r1 r15
+	sh2_add_to_reg_from_val_byte r15 04
+	## r0
+	sh2_copy_to_reg_from_ptr_long r0 r15
+	sh2_add_to_reg_from_val_byte r15 04
+	## return
+	sh2_return_after_next_inst
+	sh2_nop
+}
+
+# 指定されたFADの画像(320x224)をVDP1 RAMのother領域へロードし表示する
+# in  : r1 - FAD
+f_load_img_from_cd_and_view() {
+	# 変更が発生するレジスタを退避
+	## r0
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r0
+	## r1
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r1
+	## r2
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r2
+	## r3
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r3
+	## r4
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r4
+	## r5
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r5
+	## r6
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r6
+	## r7
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r7
+	## r8
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r8
+	## r9
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r9
+	## r10
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r10
+	## r11
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r11
+	## r12
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r12
+	## r13
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r13
+	## r14
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r14
+	## pr
+	sh2_copy_to_reg_from_pr r0
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r0
+
+	# 使用する関数・変数のアドレスをレジスタへ設定
+	copy_to_reg_from_val_long r14 $a_cd_exec_command
+	copy_to_reg_from_val_long r12 $SS_CT_CS2_DTR_ADDR
+	copy_to_reg_from_val_long r10 $SS_CT_CS2_CR4_ADDR
+	copy_to_reg_from_val_long r9 $var_tmp_img_area
+
+	# FADをr6へコピー
+	sh2_copy_to_reg_from_reg r6 r1
+
+	# CDシステム初期化処理を呼び出し
+	copy_to_reg_from_val_long r8 $a_setup_cdsystem
+	sh2_abs_call_to_reg_after_next_inst r8
 	sh2_nop
 
 	# CD再生

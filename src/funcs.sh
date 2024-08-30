@@ -762,9 +762,16 @@ funcs() {
 	f_cd_exec_command >src/f_cd_exec_command.o
 	cat src/f_cd_exec_command.o
 
-	# 指定されたFADの画像(320x224)をVDP1 RAMのother領域へロードし表示する
+	# CDシステム初期化処理
 	fsz=$(to16 $(stat -c '%s' src/f_cd_exec_command.o))
-	a_load_img_from_cd_and_view=$(calc16_8 "${a_cd_exec_command}+${fsz}")
+	a_setup_cdsystem=$(calc16_8 "${a_cd_exec_command}+${fsz}")
+	echo -e "a_setup_cdsystem=$a_setup_cdsystem" >>$map_file
+	f_setup_cdsystem >src/f_setup_cdsystem.o
+	cat src/f_setup_cdsystem.o
+
+	# 指定されたFADの画像(320x224)をVDP1 RAMのother領域へロードし表示する
+	fsz=$(to16 $(stat -c '%s' src/f_setup_cdsystem.o))
+	a_load_img_from_cd_and_view=$(calc16_8 "${a_setup_cdsystem}+${fsz}")
 	echo -e "a_load_img_from_cd_and_view=$a_load_img_from_cd_and_view" >>$map_file
 	f_load_img_from_cd_and_view >src/f_load_img_from_cd_and_view.o
 	cat src/f_load_img_from_cd_and_view.o
