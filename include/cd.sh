@@ -3,5 +3,5 @@ if [ "${INCLUDE_CD_SH+is_defined}" ]; then
 fi
 INCLUDE_CD_SH=true
 
-FAD_FIRST_IMG=02a2
+LOAD_FILE_FAD=02a2	# 4桁の16進数で指定する
 SECTORS_IMG_OFS=46

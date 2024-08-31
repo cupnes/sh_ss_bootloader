@@ -8,6 +8,7 @@ SRC_CD_SH=true
 . include/ss.sh
 . include/common.sh
 . include/con.sh
+. include/cd.sh
 
 # 以下の想定で動作する
 ## ディレクトリレコード領域のセクタ数(10進数)
@@ -861,6 +862,458 @@ f_load_img_from_cd_and_view() {
 	sh2_add_to_reg_from_val_byte r15 04
 	## r1
 	sh2_copy_to_reg_from_ptr_long r1 r15
+	sh2_add_to_reg_from_val_byte r15 04
+	## r0
+	sh2_copy_to_reg_from_ptr_long r0 r15
+	sh2_add_to_reg_from_val_byte r15 04
+	## return
+	sh2_return_after_next_inst
+	sh2_nop
+}
+
+# 一連のデータロード処理を行う
+# in  : r1 - ロード先アドレス
+# out : r1 - 成功(=0)、エラー(=1)
+# ※ ロード元ファイルのFADは固定(定数LOAD_FILE_FAD)
+# ※ エラー要因はチェックサムの不一致のみ
+f_load_data_from_cd() {
+	local obj
+	local obj2
+
+	# 変更が発生するレジスタを退避
+	## r0
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r0
+	## r2
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r2
+	## r3
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r3
+	## r4
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r4
+	## r6
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r6
+	## r7
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r7
+	## r8
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r8
+	## r9
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r9
+	## r10
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r10
+	## r11
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r11
+	## r12
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r12
+	## r13
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r13
+	## r14
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r14
+	## pr
+	sh2_copy_to_reg_from_pr r0
+	sh2_add_to_reg_from_val_byte r15 $(two_comp_d 4)
+	sh2_copy_to_ptr_from_reg_long r15 r0
+
+	# CDシステム初期化処理を呼び出し
+	copy_to_reg_from_val_long r14 $a_setup_cdsystem
+	sh2_abs_call_to_reg_after_next_inst r14
+	sh2_nop
+
+	# 使用するアドレスをレジスタへ設定
+	copy_to_reg_from_val_long r14 $a_cd_exec_command
+	copy_to_reg_from_val_long r12 $SS_CT_CS2_DTR_ADDR
+	copy_to_reg_from_val_long r10 $SS_CT_CS2_CR4_ADDR
+
+	# ロード先アドレスをr9へコピー
+	sh2_copy_to_reg_from_reg r9 r1
+
+	# CD再生(LOAD_FILE_FADから1セクタのみ)
+	## PlayDisc(cmd=0x10)
+	## | Reg | [15:8]       | [7:0]         |
+	## |-----+--------------+---------------|
+	## | CR1 | cmd(0x10)    | pdspos[23:16] |
+	## | CR2 | pdspos[15:8] | pdspos[7:0]   |
+	## | CR3 | pdpmode      | pdepos[23:16] |
+	## | CR4 | pdepos[15:8] | pdepos[7:0]   |
+	## FAD指定の場合、
+	## pdspos = 0x800000 | FAD
+	## pdepos = 0x800000 | セクタ数
+
+	## r1(CR1) = 0x1080
+	copy_to_reg_from_val_word r1 1080
+
+	## r2(CR2) = $LOAD_FILE_FAD
+	copy_to_reg_from_val_word r2 $LOAD_FILE_FAD
+
+	## r3(CR3) = 0x0080
+	sh2_set_reg r3 80
+	sh2_extend_unsigned_to_reg_from_reg_byte r3 r3
+
+	## r4(CR4) = 0x0001
+	sh2_set_reg r4 01
+
+	## CDコマンド実行
+	sh2_abs_call_to_reg_after_next_inst r14
+	sh2_nop
+
+	# 1セクタ以上の読み出し完了を待つ
+	local obj_got_sector_num_gt_0=src/f_load_data_from_cd.got_sector_num_gt_0.o
+	(
+		# 読み取り済みセクタ数の取得
+		## GetSectorNumber(0x51)
+		## | Reg | [15:8]    | [7:0] |
+		## |-----+-----------+-------|
+		## | CR1 | cmd(0x51) | -     |
+		## | CR2 | -         | -     |
+		## | CR3 | gsnbufno  | -     |
+		## | CR4 | -         | -     |
+
+		## r1(CR1) = 0x5100
+		sh2_set_reg r1 51
+		sh2_shift_left_logical_8 r1
+
+		## r2(CR2) = 0x0000
+		sh2_set_reg r2 00
+
+		## r3(CR3) = 0x0000
+		sh2_set_reg r3 00
+
+		## r4(CR4) = 0x0000
+		sh2_set_reg r4 00
+
+		## CDコマンド実行
+		sh2_abs_call_to_reg_after_next_inst r14
+		sh2_nop
+
+		# CR4 > 0 ?
+		sh2_set_reg r0 00
+		sh2_copy_to_reg_from_ptr_word r4 r10
+		sh2_compare_reg_gt_reg_signed r4 r0
+	) >$obj_got_sector_num_gt_0
+	cat $obj_got_sector_num_gt_0
+	local sz_got_sector_num_gt_0=$(stat -c '%s' $obj_got_sector_num_gt_0)
+	## T == 0(CR4 <= 0)なら繰り返す
+	sh2_rel_jump_if_false $(two_comp_d $(((sz_got_sector_num_gt_0 + 4) / 2)))
+
+	# セクタデータの取り出し&消去
+	## GetThenDeleteSectorData(cmd=0x63)
+	## | Reg | [15:8]                | [7:0]                |
+	## |-----+-----------------------+----------------------|
+	## | CR1 | cmd(0x63)             | -                    |
+	## | CR2 | gtdsdsectoffset[15:8] | gtdsdsectoffset[7:0] |
+	## | CR3 | gtdsdbufno            | -                    |
+	## | CR4 | gtdsdsectnum[15:8]    | gtdsdsectnum[7:0]    |
+	## gtdsdsectoffset = ロードした先頭位置からのオフセット
+	## gtdsdbufno = ロードしたバッファ(セレクタ)番号
+	## gtdsdsectnum = 取り出すセクタ数
+
+	## r1(CR1) = 0x6300
+	sh2_set_reg r1 63
+	sh2_shift_left_logical_8 r1
+
+	## r2(CR2) = 0x0000
+	sh2_set_reg r2 00
+
+	## r3(CR3) = 0x0000
+	sh2_set_reg r3 00
+
+	## r4(CR4) = 1
+	sh2_set_reg r4 01
+
+	## CDコマンド実行
+	sh2_abs_call_to_reg_after_next_inst r14
+	sh2_nop
+
+	# r0へセクタ数とチェックサムを含む先頭4バイトを取得
+	# | オフセット | 内容                 | サイズ[バイト] |
+	# |------------+----------------------+----------------|
+	# |          0 | セクタ数(ヘッダ除く) |              1 |
+	# |          1 | チェックサム         |              1 |
+	# |          2 | 予約(0値)            |              2 |
+	sh2_copy_to_reg_from_ptr_long r0 r12
+
+	# チェックサムをr13へ保存
+	sh2_copy_to_reg_from_reg r13 r0
+	sh2_shift_right_logical_8 r13
+
+	# ヘッダを除くセクタ数をr11へコピー
+	sh2_set_reg r11 ff
+	sh2_extend_unsigned_to_reg_from_reg_byte r11 r11
+	sh2_and_to_reg_from_reg r11 r0
+
+	# データ転送の終了
+	## EndDataTransfer(cmd=0x06)
+	## | Reg | [15:8]    | [7:0] |
+	## |-----+-----------+-------|
+	## | CR1 | cmd(0x06) | -     |
+	## | CR2 | -         | -     |
+	## | CR3 | -         | -     |
+	## | CR4 | -         | -     |
+
+	## r1(CR1) = 0x0600
+	sh2_set_reg r1 06
+	sh2_shift_left_logical_8 r1
+
+	## r2(CR2) = 0x0000
+	sh2_set_reg r2 00
+
+	## r3(CR3) = 0x0000
+	sh2_set_reg r3 00
+
+	## r4(CR4) = 0x0000
+	sh2_set_reg r4 00
+
+	## CDコマンド実行
+	sh2_abs_call_to_reg_after_next_inst r14
+	sh2_nop
+
+	# CD再生(LOAD_FILE_FAD + 1からr11セクタ数(=フレーム数)分)
+	## PlayDisc(cmd=0x10)
+	## | Reg | [15:8]       | [7:0]         |
+	## |-----+--------------+---------------|
+	## | CR1 | cmd(0x10)    | pdspos[23:16] |
+	## | CR2 | pdspos[15:8] | pdspos[7:0]   |
+	## | CR3 | pdpmode      | pdepos[23:16] |
+	## | CR4 | pdepos[15:8] | pdepos[7:0]   |
+	## FAD指定の場合、
+	## pdspos = 0x800000 | FAD
+	## pdepos = 0x800000 | セクタ数
+
+	## r1(CR1) = 0x1080
+	copy_to_reg_from_val_word r1 1080
+
+	## r2(CR2) = LOAD_FILE_FAD + 1
+	copy_to_reg_from_val_word r2 $(calc16_4 "${LOAD_FILE_FAD}+1")
+
+	## r3(CR3) = 0x0080
+	sh2_set_reg r3 80
+	sh2_extend_unsigned_to_reg_from_reg_byte r3 r3
+
+	## r4(CR4) = r11
+	sh2_copy_to_reg_from_reg r4 r11
+
+	## CDコマンド実行
+	sh2_abs_call_to_reg_after_next_inst r14
+	sh2_nop
+
+	# 完了したセクタから順にr11セクタ分をロード先へ配置
+
+	## 取得済みセクタ数(この時点では0)をr8へ設定
+	sh2_set_reg r8 00
+
+	## チェックサム計算用レジスタ(r7)をゼロクリア
+	sh2_set_reg r7 00
+
+	## チェックサム計算用に最下位バイトを抽出するマスクをr6へ作成
+	sh2_set_reg r6 ff
+	sh2_extend_unsigned_to_reg_from_reg_byte r6 r6
+
+	obj=src/f_load_data_from_cd.get_sectors.o
+	(
+		# 1セクタ以上の読み出し完了を待つ
+		cat $obj_got_sector_num_gt_0
+		## T == 0(CR4 <= 0)なら繰り返す
+		sh2_rel_jump_if_false $(two_comp_d $(((sz_got_sector_num_gt_0 + 4) / 2)))
+
+		# セクタデータの取り出し&消去
+		## GetThenDeleteSectorData(cmd=0x63)
+		## | Reg | [15:8]                | [7:0]                |
+		## |-----+-----------------------+----------------------|
+		## | CR1 | cmd(0x63)             | -                    |
+		## | CR2 | gtdsdsectoffset[15:8] | gtdsdsectoffset[7:0] |
+		## | CR3 | gtdsdbufno            | -                    |
+		## | CR4 | gtdsdsectnum[15:8]    | gtdsdsectnum[7:0]    |
+		## gtdsdsectoffset = ロードした先頭位置からのオフセット
+		## gtdsdbufno = ロードしたバッファ(セレクタ)番号
+		## gtdsdsectnum = 取り出すセクタ数
+
+		## r1(CR1) = 0x6300
+		sh2_set_reg r1 63
+		sh2_shift_left_logical_8 r1
+
+		## r2(CR2) = 0x0000
+		sh2_set_reg r2 00
+
+		## r3(CR3) = 0x0000
+		sh2_set_reg r3 00
+
+		## r4(CR4) → GetSectorNumberで取得したセクタ数をそのまま使う
+
+		## CDコマンド実行
+		sh2_abs_call_to_reg_after_next_inst r14
+		sh2_nop
+
+		# 取得済みセクタ数を更新
+		sh2_add_to_reg_from_reg r8 r4
+
+		# 読み取り済みのセクタ数(r4)分をDTRからロード先へコピー
+
+		## セクタ数(r4)を4バイトリードの回数へ変換する
+		## (/ 2048 4.0)512.0 = 0b10 0000 0000 なので、
+		## 9ビット左シフトすればリード回数になる
+		sh2_shift_left_logical_8 r4
+		sh2_shift_left_logical r4
+
+		## r4の回数分、DTRから4バイトリードして、ロード先へコピー
+		obj2=src/f_load_data_from_cd.load_from_dtr.o
+		(
+			# 4バイト読み出してr0へ格納
+			sh2_copy_to_reg_from_ptr_long r0 r12
+
+			# 読み出した4バイトをロード先へコピー
+			sh2_copy_to_ptr_from_reg_long r9 r0
+
+			# 読み出した4バイトの各バイトを
+			# チェックサム計算用レジスタ(r7)へ加算
+			local i
+			for ((i = 0; i < 4; i++)); do
+				# 読み出した4バイトをr1へコピー
+				sh2_copy_to_reg_from_reg r1 r0
+
+				# r1の最下位バイトを抽出
+				sh2_and_to_reg_from_reg r1 r6
+
+				# チェックサム計算用レジスタへr1を加算
+				sh2_add_to_reg_from_reg r7 r1
+
+				if [ $i -lt 3 ]; then
+					# 読み出した4バイトを8ビット右シフト
+					sh2_shift_right_logical_8 r0
+				fi
+			done
+
+			# ロード先のアドレス += 4
+			sh2_add_to_reg_from_val_byte r9 04
+
+			# セクタ数--
+			sh2_add_to_reg_from_val_byte r4 $(two_comp_d 1)
+
+			# セクタ数 == 0 ?
+			sh2_set_reg r0 00
+			sh2_compare_reg_eq_reg r4 r0
+		) >$obj2
+		cat $obj2
+		local sz_load_from_dtr=$(stat -c '%s' $obj2)
+		## カウンタ != 0(T == 0)なら繰り返す
+		sh2_rel_jump_if_false $(two_comp_d $(((4 + sz_load_from_dtr) / 2)))
+
+		# データ転送の終了
+		## EndDataTransfer(cmd=0x06)
+		## | Reg | [15:8]    | [7:0] |
+		## |-----+-----------+-------|
+		## | CR1 | cmd(0x06) | -     |
+		## | CR2 | -         | -     |
+		## | CR3 | -         | -     |
+		## | CR4 | -         | -     |
+
+		## r1(CR1) = 0x0600
+		sh2_set_reg r1 06
+		sh2_shift_left_logical_8 r1
+
+		## r2(CR2) = 0x0000
+		sh2_set_reg r2 00
+
+		## r3(CR3) = 0x0000
+		sh2_set_reg r3 00
+
+		## r4(CR4) = 0x0000
+		sh2_set_reg r4 00
+
+		## CDコマンド実行
+		sh2_abs_call_to_reg_after_next_inst r14
+		sh2_nop
+
+		# r11 > 取得済みセクタ数(r8) ?
+		sh2_set_reg r0 46
+		sh2_compare_reg_gt_reg_signed r11 r8
+	) >$obj
+	cat $obj
+	local sz_get_sectors=$(stat -c '%s' $obj)
+	## r11 > 取得済みセクタ数(T == 1)なら繰り返す
+	sh2_rel_jump_if_true $(two_comp_d $(((4 + sz_get_sectors) / 2)))
+
+	# チェックサム確認
+	## チェックサム計算用レジスタを最下位バイトのみ抽出
+	sh2_and_to_reg_from_reg r7 r6
+	## 算出したチェックサム(r7) == ヘッダ内のチェックサム(r13)?
+	sh2_compare_reg_eq_reg r7 r13
+	local obj_eq=src/f_load_data_from_cd.chksum_eq.o
+	(
+		# 算出したチェックサム(r7) == ヘッダ内のチェックサム(r13) の場合
+
+		# 戻り値(r1)へ0を設定
+		sh2_set_reg r1 00
+	) >$obj_eq
+	local obj_ne=src/f_load_data_from_cd.chksum_ne.o
+	(
+		# 算出したチェックサム(r7) != ヘッダ内のチェックサム(r13) の場合
+
+		# 戻り値(r1)へ1を設定
+		sh2_set_reg r1 01
+
+		# r7 == r13 の場合の処理を飛ばす
+		local sz_chksum_eq=$(stat -c '%s' $obj_eq)
+		sh2_rel_jump_after_next_inst $(extend_digit $(to16 $((sz_chksum_eq / 2))) 3)
+		sh2_nop
+	) >$obj_ne
+	local sz_chksum_ne=$(stat -c '%s' $obj_ne)
+	sh2_rel_jump_if_true $(two_digits_d $(((sz_chksum_ne - 2) / 2)))
+	# 算出したチェックサム(r7) != ヘッダ内のチェックサム(r13) の場合
+	cat $obj_ne
+	# 算出したチェックサム(r7) == ヘッダ内のチェックサム(r13) の場合
+	cat $obj_eq
+
+	# 退避したレジスタを復帰しreturn
+	## pr
+	sh2_copy_to_reg_from_ptr_long r0 r15
+	sh2_add_to_reg_from_val_byte r15 04
+	sh2_copy_to_pr_from_reg r0
+	## r14
+	sh2_copy_to_reg_from_ptr_long r14 r15
+	sh2_add_to_reg_from_val_byte r15 04
+	## r13
+	sh2_copy_to_reg_from_ptr_long r13 r15
+	sh2_add_to_reg_from_val_byte r15 04
+	## r12
+	sh2_copy_to_reg_from_ptr_long r12 r15
+	sh2_add_to_reg_from_val_byte r15 04
+	## r11
+	sh2_copy_to_reg_from_ptr_long r11 r15
+	sh2_add_to_reg_from_val_byte r15 04
+	## r10
+	sh2_copy_to_reg_from_ptr_long r10 r15
+	sh2_add_to_reg_from_val_byte r15 04
+	## r9
+	sh2_copy_to_reg_from_ptr_long r9 r15
+	sh2_add_to_reg_from_val_byte r15 04
+	## r8
+	sh2_copy_to_reg_from_ptr_long r8 r15
+	sh2_add_to_reg_from_val_byte r15 04
+	## r7
+	sh2_copy_to_reg_from_ptr_long r7 r15
+	sh2_add_to_reg_from_val_byte r15 04
+	## r6
+	sh2_copy_to_reg_from_ptr_long r6 r15
+	sh2_add_to_reg_from_val_byte r15 04
+	## r4
+	sh2_copy_to_reg_from_ptr_long r4 r15
+	sh2_add_to_reg_from_val_byte r15 04
+	## r3
+	sh2_copy_to_reg_from_ptr_long r3 r15
+	sh2_add_to_reg_from_val_byte r15 04
+	## r2
+	sh2_copy_to_reg_from_ptr_long r2 r15
 	sh2_add_to_reg_from_val_byte r15 04
 	## r0
 	sh2_copy_to_reg_from_ptr_long r0 r15

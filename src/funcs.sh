@@ -776,9 +776,16 @@ funcs() {
 	f_load_img_from_cd_and_view >src/f_load_img_from_cd_and_view.o
 	cat src/f_load_img_from_cd_and_view.o
 
-	# データを1バイト受信する
+	# 一連のデータロード処理を行う
 	fsz=$(to16 $(stat -c '%s' src/f_load_img_from_cd_and_view.o))
-	a_rcv_byte=$(calc16_8 "${a_load_img_from_cd_and_view}+${fsz}")
+	a_load_data_from_cd=$(calc16_8 "${a_load_img_from_cd_and_view}+${fsz}")
+	echo -e "a_load_data_from_cd=$a_load_data_from_cd" >>$map_file
+	f_load_data_from_cd >src/f_load_data_from_cd.o
+	cat src/f_load_data_from_cd.o
+
+	# データを1バイト受信する
+	fsz=$(to16 $(stat -c '%s' src/f_load_data_from_cd.o))
+	a_rcv_byte=$(calc16_8 "${a_load_data_from_cd}+${fsz}")
 	echo -e "a_rcv_byte=$a_rcv_byte" >>$map_file
 	f_rcv_byte >src/f_rcv_byte.o
 	cat src/f_rcv_byte.o
