@@ -106,3 +106,11 @@ CHARCODE_OPEN_CURLY_BRACKET=7B
 CHARCODE_BAR=7C
 CHARCODE_CLOSE_CURLY_BRACKET=7D
 CHARCODE_TILDE=7E
+
+# ASCII文字(表示可能文字)に対応する文字コードを取得する
+# 第1引数: ASCII文字
+# ※ 上記で定義している文字コードはASCIIの範囲内の文字コードはASCIIと同じ
+get_charcode_ascii() {
+	local ch="$1"
+	echo -n "$ch" | hexdump -e '1/1 "%02X"'
+}

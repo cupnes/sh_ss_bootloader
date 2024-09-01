@@ -9,12 +9,15 @@ all: $(TARGETS)
 $(NAME).cue: $(NAME).iso
 	$(TOOLS_PATH)/make_cue.sh $< >$@
 
-$(NAME).iso: 0.BIN
-	./iso9660.sh $< >$@
+$(NAME).iso: 0.BIN 1.BIN
+	./iso9660.sh $^ >$@
 
 0.BIN: src/main.sh src/vars.o src/vars_map.sh src/funcs.o	\
 	src/funcs_map.sh src/vdp.sh
 	./$< >$@
+
+1.BIN: apps/hello.bin
+	cp $< $@
 
 src/funcs.o src/funcs_map.sh: src/funcs.sh src/vars_map.sh src/con.sh
 	src/funcs.sh >src/funcs.o
@@ -24,6 +27,15 @@ src/vars.o src/vars_map.sh: src/vars.sh font.lut
 
 font.lut: font_lut
 	cat $</* >$@
+
+apps/hello.bin: apps/hello.exe tools/dump_cdloadable_data
+	tools/dump_cdloadable_data $< $@
+
+apps/hello.exe: apps/hello.sh
+	$< >$@
+
+tools/dump_cdloadable_data:
+	make -C tools dump_cdloadable_data
 
 run_yabause: $(NAME).iso
 	$(EMU_YABAUSE) $<

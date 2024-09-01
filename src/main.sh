@@ -10,6 +10,7 @@ set -ue
 . include/vdp1.sh
 . include/memmap.sh
 . include/charcode.sh
+. include/bootloader.sh
 . src/vars_map.sh
 . src/funcs_map.sh
 . src/vdp.sh
@@ -94,8 +95,35 @@ setup_vram_color_lookup_table() {
 	done
 }
 
+# putcharを用いた文字列出力マクロ
+# ※ f_putstr_xy()という関数もあるが、
+# 　 このマクロは文字列リテラルをどこかに確保する必要が無い
+# ※ 作業用にR0・R1を使用する
+# 第1引数: 出力する文字列
+# 第2引数: f_putchar()のアドレスを設定するのに使用するレジスタ
+putstr_macro() {
+	local output_str=$1
+	local putchar_reg=$2
+	local i
+	local c
+	local charcode
+
+	# f_putchar()のアドレスを指定されたレジスタへ設定
+	copy_to_reg_from_val_long $putchar_reg $a_putchar
+
+	# f_putcher()を用いて1文字ずつ出力
+	for (( i = 0; i < ${#output_str}; i++ )); do
+		c="${output_str:$i:1}"
+		charcode=$(get_charcode_ascii "$c")
+		sh2_abs_call_to_reg_after_next_inst $putchar_reg
+		sh2_set_reg r1 $charcode
+	done
+}
+
 # メイン関数
 main() {
+	local obj
+
 	# NMI以外の全ての割り込みをマスクする
 	sh2_copy_to_reg_from_sr r0
 	sh2_or_to_r0_from_val_byte $(echo $SH2_SR_BIT_I3210 | cut -c7-8)
@@ -111,17 +139,50 @@ main() {
 	# VDP1/2の初期化
 	vdp_init
 
+	if [ "$LOAD_FROM_MIDI" = 'false' ]; then
+		# コンソールの初期化
+		copy_to_reg_from_val_long r14 $a_con_init
+		sh2_abs_call_to_reg_after_next_inst r14
+		sh2_nop
+	fi
+
 	# 無限ループ
 	(
 		# 使用するアドレスをレジスタへ設定しておく
-		copy_to_reg_from_val_long r14 $a_load_data_from_midi
+		if [ "$LOAD_FROM_MIDI" = 'true' ]; then
+			copy_to_reg_from_val_long r14 $a_load_data_from_midi
+		else
+			copy_to_reg_from_val_long r14 $a_load_data_from_cd
+		fi
 		copy_to_reg_from_val_long r13 $PROG_LOAD_BASE
 
 		# 一連のデータ受信を行う関数を呼び出す
 		sh2_abs_call_to_reg_after_next_inst r14
 		sh2_copy_to_reg_from_reg r1 r13
 
-		# この時、r2にチェックサムが入っている
+		if [ "$LOAD_FROM_MIDI" = 'true' ]; then
+			# この時、r2にチェックサムが入っている
+			:
+		else
+			# ロード処理は成功したか?
+			# (r1 == 0?)
+			sh2_set_reg r0 00
+			sh2_compare_reg_eq_reg r1 r0
+			obj=src/main.load_failed.o
+			(
+				# ロード処理が失敗した場合
+				# (r1 != 0)
+
+				# エラーメッセージを出力
+				putstr_macro 'Error: Checksum mismatch.' r14
+
+				# 無限ループで固める
+				infinite_loop
+			) >$obj
+			local sz_load_failed=$(stat -c '%s' $obj)
+			sh2_rel_jump_if_true $(two_digits_d $(((sz_load_failed - 2) / 2)))
+			cat $obj
+		fi
 
 		# ロードしたプログラムを実行する
 		sh2_abs_call_to_reg_after_next_inst r13
