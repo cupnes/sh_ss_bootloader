@@ -9,5 +9,5 @@ app=$1
 shift
 
 apps/${app}.sh $* >apps/${app}.exe
-../tools/dump_data_packets apps/${app}.{exe,pkt}
+tools/dump_data_packets apps/${app}.{exe,pkt}
 dd if=apps/${app}.pkt of=$MIDI_DEV status=none
