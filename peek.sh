@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# 一発 apps/test_mcipd_mo_bit.sh を実行してからでないとうまく動かない
+# $ ./exec.sh test_mcipd_mo_bit
+# 上記のように一発 apps/test_mcipd_mo_bit.sh を実行してからでないとうまく動かない
 # 具体的には、MCIPDのMOが1にならず、それを待ち続けてしまう
 # 一度何かMIDI送信しないとMOビットが機能しないのかもしれない
 
