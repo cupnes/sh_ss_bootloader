@@ -10,5 +10,5 @@ addr=$2
 val=$3
 
 apps/poke_${access_width}.sh $addr $val >apps/poke_${access_width}.exe
-../tools/dump_data_packets apps/poke_${access_width}.{exe,pkt}
+tools/dump_data_packets apps/poke_${access_width}.{exe,pkt}
 dd if=apps/poke_${access_width}.pkt of=$MIDI_DEV status=none

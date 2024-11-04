@@ -22,7 +22,7 @@ cleanup() {
 trap "cleanup" EXIT INT ERR
 
 apps/peek_${access_width}.sh $addr >apps/peek_${access_width}.exe
-../tools/dump_data_packets apps/peek_${access_width}.{exe,pkt}
+tools/dump_data_packets apps/peek_${access_width}.{exe,pkt}
 dd if=apps/peek_${access_width}.pkt of=$MIDI_DEV status=none
 
 case "$access_width" in
