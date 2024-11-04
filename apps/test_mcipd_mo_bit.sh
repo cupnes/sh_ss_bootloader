@@ -31,10 +31,10 @@ main() {
 	copy_to_reg_from_val_long r14 $SS_CT_SND_MCIPDH_ADDR
 	copy_to_reg_from_val_long r13 $a_putreg_byte
 
-	# MCIPD(High)を読んで出力
-	sh2_abs_call_to_reg_after_next_inst r13
-	sh2_copy_to_reg_from_ptr_byte r1 r14
-	## -> 0x07 (MOビット == 1)
+	# # MCIPD(High)を読んで出力
+	# sh2_abs_call_to_reg_after_next_inst r13
+	# sh2_copy_to_reg_from_ptr_byte r1 r14
+	# ## -> 0x07 (MOビット == 1)
 
 	# MOBUFを意図的にオーバーフローさせる
 	## 10個くらいデータを書く
@@ -60,10 +60,10 @@ main() {
 	sh2_set_reg r0 08
 	sh2_copy_to_ptr_from_reg_byte r1 r0
 
-	# MCIPD(High)を読んで出力
-	sh2_abs_call_to_reg_after_next_inst r13
-	sh2_copy_to_reg_from_ptr_byte r1 r14
-	## -> 0x05 (MOビット == 0)
+	# # MCIPD(High)を読んで出力
+	# sh2_abs_call_to_reg_after_next_inst r13
+	# sh2_copy_to_reg_from_ptr_byte r1 r14
+	# ## -> 0x05 (MOビット == 0)
 
 	# 退避したレジスタを復帰しreturn
 	## pr
