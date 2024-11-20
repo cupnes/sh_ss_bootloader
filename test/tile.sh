@@ -23,7 +23,10 @@ if [ $# -ne 2 ]; then
 	exit 1
 fi
 
-echo hello
+TILE_X=$1
+TILE_Y=$2
+
+echo "X=${TILE_X}, Y=${TILE_Y}"
 exit 0
 
 set -uex
