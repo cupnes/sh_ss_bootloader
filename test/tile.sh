@@ -2,31 +2,31 @@
 
 set -uex
 
-usage() {
-	echo 'Usage:' 1>&2
-	echo -e "\t$0 TILE_X TILE_Y" 1>&2
-	echo -e "\t$0 -h" 1>&2
-}
+# usage() {
+# 	echo 'Usage:' 1>&2
+# 	echo -e "\t$0 TILE_X TILE_Y" 1>&2
+# 	echo -e "\t$0 -h" 1>&2
+# }
 
-while getopts h option; do
-	case $option in
-	h)
-		usage
-		exit 0
-		;;
-	*)
-		usage
-		exit 1
-	esac
-done
-shift $((OPTIND - 1))
-if [ $# -ne 2 ]; then
-	usage
-	exit 1
-fi
+# while getopts h option; do
+# 	case $option in
+# 	h)
+# 		usage
+# 		exit 0
+# 		;;
+# 	*)
+# 		usage
+# 		exit 1
+# 	esac
+# done
+# shift $((OPTIND - 1))
+# if [ $# -ne 2 ]; then
+# 	usage
+# 	exit 1
+# fi
 
-TILE_X=$1
-TILE_Y=$2
+# TILE_X=$1
+# TILE_Y=$2
 
 ./exec.sh test_mcipd_mo_bit
 
@@ -35,6 +35,14 @@ TILE_Y=$2
 
 # BGON(25f80020h)でNBG0を非表示にする
 ./poke.sh word 25f80020 0000
+
+# TVMD(180000h)
+# - b15 = DISP = 1
+# - b8 = BDCLMD = 1
+# - b[7:6] = LSMD[1:0] = 0b00
+# - b[5:4] = VRESO[1:0] = 0b01 (240)
+# - b[2:0] = HRESO[2:0] = 0b000 (320)
+./poke.sh word 25f80000 8110
 
 # コマンドテーブルの毎フレーム設定系の直後のCMDCTRL(25c00060h)のENDビットを設定
 # し、スプライトを非表示にする
