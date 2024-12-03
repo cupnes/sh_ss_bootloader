@@ -5,6 +5,7 @@ SRC_VDP_SH=true
 
 . include/sh2.sh
 . include/lib.sh
+. include/bootloader.sh
 
 # VDP1/2の初期化
 # work: r0* - 作業用
@@ -28,6 +29,10 @@ vdp_init() {
 	sh2_add_to_reg_from_val_byte r4 20
 	sh2_set_reg r0 00
 	sh2_shift_left_logical_8 r0
+	if [ "$DISABLE_NBG0_OFF" = 'true' ]; then
+		# NBG0を表示されたままにする
+		sh2_add_to_reg_from_val_byte r0 01
+	fi
 	sh2_copy_to_ptr_from_reg_word r4 r0
 	## PRISA
 	sh2_add_to_reg_from_val_byte r4 68
