@@ -3,6 +3,42 @@ if [ "${INCLUDE_COMMON_SH+is_defined}" ]; then
 fi
 INCLUDE_COMMON_SH=true
 
+access_width_to_bytes() {
+	local access_width=$1
+	case $access_width in
+	'byte')
+		echo 1
+		;;
+	'word')
+		echo 2
+		;;
+	'long')
+		echo 4
+		;;
+	*)
+		echo "Error: Invalid access width: $access_width" >&2
+		return 1
+	esac
+}
+
+access_width_to_digits() {
+	local access_width=$1
+	case $access_width in
+	'byte')
+		echo 2
+		;;
+	'word')
+		echo 4
+		;;
+	'long')
+		echo 8
+		;;
+	*)
+		echo "Error: Invalid access width: $access_width" >&2
+		return 1
+	esac
+}
+
 echo_2bytes() {
 	local val=$1
 	local top_half=$(echo $val | cut -c-2)
@@ -167,4 +203,9 @@ to16_2() {
 		return 1
 	fi
 	echo "obase=16;$val + 256" | bc | cut -c2-3
+}
+
+to10() {
+	local val=$1
+	bc <<< "ibase=16;$(echo $val | tr [:lower:] [:upper:])"
 }
